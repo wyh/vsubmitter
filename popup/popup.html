@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vsubmitter - 多平台内容提交助手</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <img src="../icons/icon-32.png" alt="logo" class="brand-icon">
+        <div>
+          <h1 class="brand-title">vsubmitter</h1>
+          <p class="brand-subtitle">多平台内容一键提交助手</p>
+        </div>
+      </div>
+      <button id="btnSidePanel" class="btn-icon" title="在浏览器侧边栏打开（方便多标签页切换）">
+        📌 侧边栏
+      </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Section 1: Markdown Smart Paste -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📝</span> Markdown 快捷粘贴与智能解析
+          </div>
+          <div class="card-actions">
+            <button id="btnLoadDemo" class="btn-text">载入示例</button>
+            <button id="btnClearAll" class="btn-text text-danger">清空</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <textarea id="rawMarkdown" class="textarea-markdown" placeholder="在此粘贴标题、描述和话题标签 Markdown 内容，将自动智能拆解为表单字段..."></textarea>
+        </div>
+      </section>
+
+      <!-- Section 2: Structured Fields (Collapsible / Editable) -->
+      <section class="card">
+        <div class="card-header" id="toggleFieldsHeader">
+          <div class="card-title">
+            <span>🔍</span> 结构化内容预览与编辑
+          </div>
+          <span id="fieldsToggleIcon" class="toggle-icon">▼</span>
+        </div>
+        <div class="card-body" id="fieldsBody">
+          <!-- Title -->
+          <div class="form-group">
+            <div class="form-label-row">
+              <label for="fieldTitle" class="form-label">视频标题</label>
+              <div class="limits-badges">
+                <span class="badge" id="badgeXhs">红: 20字</span>
+                <span class="badge" id="badgeDy">抖: 30字</span>
+                <span class="badge" id="badgeWx">微: 15字</span>
+                <span class="badge" id="badgeBili">B: 80字</span>
+                <span class="char-count" id="titleCharCount">0 字</span>
+              </div>
+            </div>
+            <input type="text" id="fieldTitle" class="input-text" placeholder="请输入或粘贴视频标题">
+          </div>
+
+          <!-- Description -->
+          <div class="form-group">
+            <div class="form-label-row">
+              <label for="fieldDescription" class="form-label">视频描述 / 正文简介</label>
+              <span class="char-count" id="descCharCount">0 字</span>
+            </div>
+            <textarea id="fieldDescription" class="textarea-desc" rows="4" placeholder="请输入视频正文描述..."></textarea>
+          </div>
+
+          <!-- Hashtags -->
+          <div class="form-group">
+            <div class="form-label-row">
+              <label for="fieldTags" class="form-label">话题标签</label>
+              <span class="char-count" id="tagsCount">0 个标签</span>
+            </div>
+            <input type="text" id="fieldTags" class="input-text" placeholder="输入话题标签，以空格或 # 分隔，例如: #AI科研 #实证研究">
+            <div id="tagsPillsContainer" class="tags-pills"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Media Upload Area -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>🎬</span> 多媒体素材（可选）
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="media-grid">
+            <!-- Video Picker -->
+            <div class="dropzone" id="videoDropzone">
+              <input type="file" id="videoFileInput" accept="video/*,.mp4,.mov" class="file-hidden">
+              <div class="dropzone-content" id="videoDropContent">
+                <div class="dropzone-icon">🎞️</div>
+                <div class="dropzone-title">拖入或点击选择视频</div>
+                <div class="dropzone-sub">MP4, MOV (可选)</div>
+              </div>
+              <div class="file-info hidden" id="videoFileInfo">
+                <span class="file-icon">🎥</span>
+                <div class="file-meta">
+                  <div class="file-name" id="videoFileName">video.mp4</div>
+                  <div class="file-size" id="videoFileSize">0 MB</div>
+                </div>
+                <button type="button" class="btn-remove" id="btnRemoveVideo" title="移除视频">×</button>
+              </div>
+            </div>
+
+            <!-- Cover Picker -->
+            <div class="dropzone" id="coverDropzone">
+              <input type="file" id="coverFileInput" accept="image/*,.png,.jpg,.jpeg,.webp" class="file-hidden">
+              <div class="dropzone-content" id="coverDropContent">
+                <div class="dropzone-icon">🖼️</div>
+                <div class="dropzone-title">拖入/点击/粘贴封面图</div>
+                <div class="dropzone-sub">PNG, JPG (支持直接 Cmd+V 粘贴)</div>
+              </div>
+              <div class="cover-preview-wrapper hidden" id="coverPreviewWrapper">
+                <img id="coverPreviewImg" src="" alt="封面预览" class="cover-preview-img">
+                <div class="file-meta">
+                  <div class="file-name" id="coverFileName">cover.png</div>
+                  <div class="file-size" id="coverFileSize">0 KB</div>
+                </div>
+                <button type="button" class="btn-remove" id="btnRemoveCover" title="移除封面">×</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Target Platforms -->
+      <section class="card">
+        <div class="card-header">
+          <div class="card-title">
+            <span>🌐</span> 目标平台检测与同步选项
+          </div>
+          <button id="btnRefreshStatus" class="btn-text">🔄 刷新状态</button>
+        </div>
+        <div class="card-body">
+          <div class="platform-list">
+            <!-- 小红书 -->
+            <div class="platform-item" data-platform="xiaohongshu">
+              <label class="platform-label">
+                <input type="checkbox" id="chk_xiaohongshu" class="chk-platform" checked>
+                <span class="plat-name">📕 小红书</span>
+              </label>
+              <div class="plat-status" id="status_xiaohongshu">
+                <span class="status-dot"></span>
+                <span class="status-text">检测中...</span>
+              </div>
+              <button class="btn-action-single" data-action="single" data-plat="xiaohongshu" title="仅填入小红书">仅填此项</button>
+            </div>
+
+            <!-- 抖音 -->
+            <div class="platform-item" data-platform="douyin">
+              <label class="platform-label">
+                <input type="checkbox" id="chk_douyin" class="chk-platform" checked>
+                <span class="plat-name">🎵 抖音</span>
+              </label>
+              <div class="plat-status" id="status_douyin">
+                <span class="status-dot"></span>
+                <span class="status-text">检测中...</span>
+              </div>
+              <button class="btn-action-single" data-action="single" data-plat="douyin" title="仅填入抖音">仅填此项</button>
+            </div>
+
+            <!-- 视频号 -->
+            <div class="platform-item" data-platform="wechat_channels">
+              <label class="platform-label">
+                <input type="checkbox" id="chk_wechat_channels" class="chk-platform" checked>
+                <span class="plat-name">📺 微信视频号</span>
+              </label>
+              <div class="plat-status" id="status_wechat_channels">
+                <span class="status-dot"></span>
+                <span class="status-text">检测中...</span>
+              </div>
+              <button class="btn-action-single" data-action="single" data-plat="wechat_channels" title="仅填入视频号">仅填此项</button>
+            </div>
+
+            <!-- B站 -->
+            <div class="platform-item" data-platform="bilibili">
+              <label class="platform-label">
+                <input type="checkbox" id="chk_bilibili" class="chk-platform" checked>
+                <span class="plat-name">⚡ 哔哩哔哩 (B站)</span>
+              </label>
+              <div class="plat-status" id="status_bilibili">
+                <span class="status-dot"></span>
+                <span class="status-text">检测中...</span>
+              </div>
+              <button class="btn-action-single" data-action="single" data-plat="bilibili" title="仅填入B站">仅填此项</button>
+            </div>
+          </div>
+
+          <div class="options-row">
+            <label class="checkbox-option">
+              <input type="checkbox" id="chkAutoOpenTab" checked>
+              <span>后台未打开时自动新建并跳转</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 5: Execute Action & Progress -->
+      <div class="action-bar">
+        <button id="btnSubmitAll" class="btn-primary">
+          <span class="btn-icon-text">🚀</span> 一键同步填入所选平台
+        </button>
+      </div>
+
+      <!-- Section 6: Live Log Panel -->
+      <section class="card log-card" id="logSection">
+        <div class="card-header">
+          <div class="card-title">
+            <span>📋</span> 执行反馈与结果
+          </div>
+          <span id="logSummaryBadge" class="badge badge-info">就绪</span>
+        </div>
+        <div class="card-body">
+          <div id="logList" class="log-list">
+            <div class="log-empty">等待开始同步... 填写完成后请到各标签页手动确认并点击提交。</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

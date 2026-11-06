@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "vsubmitter - 多平台内容一键提交工作台",
+  "version": "1.1.0",
+  "description": "打开独立大屏工作台，一键将视频标题、描述、话题标签及横竖版封面同步填入小红书、抖音、视频号与B站创作者后台。",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "打开 vsubmitter 工作台",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "permissions": [
+    "tabs",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.xiaohongshu.com/*",
+    "*://*.douyin.com/*",
+    "*://*.weixin.qq.com/*",
+    "*://*.qq.com/*",
+    "*://*.bilibili.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  }
+}

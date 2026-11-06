@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>vsubmitter - 多平台内容提交工作台</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-brand">
+        <img src="../icons/icon-48.png" alt="vsubmitter logo" class="brand-logo">
+        <div class="brand-text">
+          <h1 class="brand-name">vsubmitter</h1>
+          <span class="brand-tag">自媒体多平台一键分发工作台</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button id="btnLoadDemo" class="btn btn-secondary">
+          <span>📋</span> 载入示例文案
+        </button>
+        <button id="btnRefreshStatus" class="btn btn-secondary">
+          <span>🔄</span> 刷新平台状态
+        </button>
+        <button id="btnReloadExt" class="btn btn-secondary" title="重载插件 Background 与适配器代码">
+          <span>⚡</span> 重载插件
+        </button>
+        <button id="btnClearAll" class="btn btn-outline-danger">
+          <span>🧹</span> 清空内容
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="workbench">
+    <div class="workbench-grid">
+      <!-- Left Column: Content & Media Input -->
+      <div class="column-left">
+        <!-- Markdown File Upload & Smart Parser Card -->
+        <div class="card card-editor">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="title-icon">📄</span>
+              <span>Markdown 文档上传与解析</span>
+            </div>
+            <span class="hint-text">拖入 .md 文件自动提取标题、正文与话题</span>
+          </div>
+          <div class="card-body">
+            <!-- Markdown Dropzone -->
+            <div class="big-dropzone dropzone-md" id="mdDropzone">
+              <input type="file" id="mdFileInput" accept=".md,.markdown,.txt,text/markdown,text/plain" class="file-hidden">
+              <div class="dropzone-idle" id="mdDropIdle">
+                <div class="dropzone-art">📄</div>
+                <div class="dropzone-primary-text">拖拽 Markdown 文件 (.md) 到此处，或点击选择</div>
+                <div class="dropzone-secondary-text">直接选文件，无需先打开复制粘贴</div>
+                <button type="button" class="btn btn-sm btn-drop-pick">📂 选择 Markdown 文件</button>
+              </div>
+              <div class="dropzone-loaded hidden" id="mdLoaded">
+                <div class="file-card-preview">
+                  <span class="file-big-icon">📝</span>
+                  <div class="file-card-details">
+                    <div class="file-card-name" id="mdFileName">content.md</div>
+                    <div class="file-card-size" id="mdFileSize">0 KB</div>
+                    <span class="badge badge-success">Markdown 已解析载入</span>
+                  </div>
+                </div>
+                <div class="file-card-actions">
+                  <button type="button" class="btn btn-sm btn-secondary" id="btnChangeMd">更换文件</button>
+                  <button type="button" class="btn btn-sm btn-outline-danger" id="btnRemoveMd">移除</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Optional Collapsible / Textarea for manual pasting or editing -->
+            <details class="md-raw-details" id="mdRawDetails">
+              <summary class="md-raw-summary">
+                <span>📝 查看或手工编辑原始 Markdown 文本（支持直接粘贴）</span>
+                <span class="summary-arrow">▼</span>
+              </summary>
+              <textarea id="rawMarkdown" class="textarea-markdown" placeholder="在此直接粘贴包含 标题、# 描述、# 话题标签 的 Markdown 文本...&#10;&#10;例如：&#10;标题&#10;AI 从两篇PDF开始完成一篇实证研究&#10;&#10;# 描述&#10;两篇读过、觉得有意思的论文，怎样变成自己研究的起点？...&#10;&#10;# 话题标签&#10;#AI科研 #实证研究 #文献检索"></textarea>
+            </details>
+          </div>
+        </div>
+
+        <!-- Structured Fields Card -->
+        <div class="card card-fields">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="title-icon">🔍</span>
+              <span>结构化表单核对与微调</span>
+            </div>
+            <span class="hint-text">可在此直接修改，各字段实时同步</span>
+          </div>
+          <div class="card-body">
+            <!-- Title -->
+            <div class="form-row">
+              <div class="form-label-bar">
+                <label for="fieldTitle" class="form-label">
+                  <span>视频标题</span>
+                  <span class="required">*</span>
+                </label>
+                <div class="limits-group">
+                  <span class="limit-badge" id="badgeXhs">小红书: max 20字</span>
+                  <span class="limit-badge" id="badgeDy">抖音: max 30字</span>
+                  <span class="limit-badge" id="badgeWx">视频号短标题: 15字</span>
+                  <span class="limit-badge" id="badgeBili">B站: max 80字</span>
+                  <span class="char-counter" id="titleCharCount">0 字</span>
+                </div>
+              </div>
+              <input type="text" id="fieldTitle" class="input-text-lg" placeholder="输入或由上方 Markdown 自动生成的视频标题">
+            </div>
+
+            <!-- Description -->
+            <div class="form-row">
+              <div class="form-label-bar">
+                <label for="fieldDescription" class="form-label">
+                  <span>视频描述 / 正文简介</span>
+                </label>
+                <span class="char-counter" id="descCharCount">0 字</span>
+              </div>
+              <textarea id="fieldDescription" class="textarea-desc-lg" rows="6" placeholder="输入视频正文描述与简介，支持多行排版..."></textarea>
+            </div>
+
+            <!-- Tags -->
+            <div class="form-row">
+              <div class="form-label-bar">
+                <label for="fieldTags" class="form-label">
+                  <span>话题标签</span>
+                </label>
+                <span class="char-counter" id="tagsCount">0 个标签</span>
+              </div>
+              <input type="text" id="fieldTags" class="input-text" placeholder="输入话题标签（空格或 # 分隔），例如: #AI科研 #实证研究 #文献检索">
+              <div id="tagsPillsContainer" class="tags-container"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Media Upload Card (Video, Vertical Cover, Horizontal Cover) -->
+        <div class="card card-media">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="title-icon">🎬</span>
+              <span>多媒体素材上传（宽大拖拽区，支持横版与竖版封面）</span>
+            </div>
+            <span class="hint-text">支持大文件拖选与剪贴板 Cmd+V 快速粘贴</span>
+          </div>
+          <div class="card-body">
+            <!-- Video Dropzone (Full width) -->
+            <div class="media-section-block">
+              <div class="media-block-header">
+                <span class="media-block-title">🎥 视频文件 (.mp4, .mov)</span>
+                <span class="media-block-hint">若已在后台手动拖入，可留空</span>
+              </div>
+              <div class="big-dropzone dropzone-video" id="videoDropzone">
+                <input type="file" id="videoFileInput" accept="video/*,.mp4,.mov,.mkv" class="file-hidden">
+                <div class="dropzone-idle" id="videoDropIdle">
+                  <div class="dropzone-art">🎞️</div>
+                  <div class="dropzone-primary-text">拖拽视频文件到此区域，或点击选择</div>
+                  <button type="button" class="btn btn-sm btn-drop-pick">📂 选择视频文件</button>
+                </div>
+                <div class="dropzone-loaded hidden" id="videoLoaded">
+                  <div class="file-card-preview">
+                    <span class="file-big-icon">🎬</span>
+                    <div class="file-card-details">
+                      <div class="file-card-name" id="videoFileName">video.mp4</div>
+                      <div class="file-card-size" id="videoFileSize">0 MB</div>
+                      <span class="badge badge-success">视频文件已选定</span>
+                    </div>
+                  </div>
+                  <div class="file-card-actions">
+                    <button type="button" class="btn btn-sm btn-secondary" id="btnChangeVideo">更换</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="btnRemoveVideo">移除</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Covers Grid: Vertical (3:4) & Horizontal (16:9) -->
+            <div class="covers-dual-grid">
+              <!-- Vertical Cover (3:4 / 9:16) -->
+              <div class="cover-slot">
+                <div class="media-block-header">
+                  <span class="media-block-title">📱 竖版封面 (3:4 / 9:16)</span>
+                  <span class="media-block-badge">小红书 / 抖音 / 视频号</span>
+                </div>
+                <div class="big-dropzone dropzone-cover" id="coverVerticalDropzone">
+                  <input type="file" id="coverVerticalFileInput" accept="image/*,.png,.jpg,.jpeg,.webp" class="file-hidden">
+                  <div class="dropzone-idle" id="coverVerticalDropIdle">
+                    <div class="dropzone-art">📱</div>
+                    <div class="dropzone-primary-text">拖入竖版封面</div>
+                    <div class="dropzone-secondary-text">小红书 & 抖音竖屏推荐</div>
+                    <button type="button" class="btn btn-sm btn-drop-pick">📂 选图</button>
+                  </div>
+                  <div class="dropzone-loaded hidden" id="coverVerticalLoaded">
+                    <div class="cover-card-preview vertical-preview">
+                      <img id="coverVerticalPreviewImg" src="" alt="竖版封面" class="cover-thumb-vertical">
+                      <div class="file-card-details">
+                        <div class="file-card-name" id="coverVerticalFileName">vertical.png</div>
+                        <div class="file-card-size" id="coverVerticalFileSize">0 KB</div>
+                        <span class="badge badge-success">竖版封面就绪</span>
+                      </div>
+                    </div>
+                    <div class="file-card-actions">
+                      <button type="button" class="btn btn-sm btn-secondary" id="btnChangeCoverVertical">更换</button>
+                      <button type="button" class="btn btn-sm btn-outline-danger" id="btnRemoveCoverVertical">移除</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Horizontal Cover (16:9) -->
+              <div class="cover-slot">
+                <div class="media-block-header">
+                  <span class="media-block-title">🖥️ 横版封面 (16:9)</span>
+                  <span class="media-block-badge">B站 / 抖音横屏 / 视频号横版</span>
+                </div>
+                <div class="big-dropzone dropzone-cover" id="coverHorizontalDropzone">
+                  <input type="file" id="coverHorizontalFileInput" accept="image/*,.png,.jpg,.jpeg,.webp" class="file-hidden">
+                  <div class="dropzone-idle" id="coverHorizontalDropIdle">
+                    <div class="dropzone-art">🖥️</div>
+                    <div class="dropzone-primary-text">拖入横版封面</div>
+                    <div class="dropzone-secondary-text">B站 16:9 标准比例</div>
+                    <button type="button" class="btn btn-sm btn-drop-pick">📂 选图</button>
+                  </div>
+                  <div class="dropzone-loaded hidden" id="coverHorizontalLoaded">
+                    <div class="cover-card-preview horizontal-preview">
+                      <img id="coverHorizontalPreviewImg" src="" alt="横版封面" class="cover-thumb-horizontal">
+                      <div class="file-card-details">
+                        <div class="file-card-name" id="coverHorizontalFileName">horizontal.png</div>
+                        <div class="file-card-size" id="coverHorizontalFileSize">0 KB</div>
+                        <span class="badge badge-success">横版封面就绪</span>
+                      </div>
+                    </div>
+                    <div class="file-card-actions">
+                      <button type="button" class="btn btn-sm btn-secondary" id="btnChangeCoverHorizontal">更换</button>
+                      <button type="button" class="btn btn-sm btn-outline-danger" id="btnRemoveCoverHorizontal">移除</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dropzone-paste-tip">
+              💡 <b>快捷贴图提示：</b> 截屏后，直接在页面任意处按 <b>Cmd + V</b>，插件会自动按图片宽高比放入对应竖版或横版封面框！
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Platforms, Actions & Live Console -->
+      <div class="column-right">
+        <!-- Platforms Target Card -->
+        <div class="card card-platforms">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="title-icon">🌐</span>
+              <span>分发目标平台与状态检测</span>
+            </div>
+            <label class="switch-container" title="若后台页面未打开，点击同步时自动打开对应后台标签页">
+              <input type="checkbox" id="chkAutoOpenTab" checked>
+              <span class="switch-label">自动打开未打开后台</span>
+            </label>
+          </div>
+          <div class="card-body">
+            <div class="platform-cards-list">
+              <!-- 小红书 -->
+              <div class="platform-card" data-platform="xiaohongshu">
+                <div class="platform-card-main">
+                  <label class="platform-check-row">
+                    <input type="checkbox" id="chk_xiaohongshu" class="chk-platform-lg" checked>
+                    <div class="platform-meta">
+                      <span class="platform-title">📕 小红书创作者服务平台</span>
+                      <span class="platform-url">creator.xiaohongshu.com</span>
+                    </div>
+                  </label>
+                  <div class="platform-status-badge" id="status_xiaohongshu">
+                    <span class="status-indicator"></span>
+                    <span class="status-label">检测中...</span>
+                  </div>
+                </div>
+                <div class="platform-cover-choice">
+                  <span class="cover-choice-label">封面策略:</span>
+                  <select class="select-cover-choice" id="coverType_xiaohongshu">
+                    <option value="auto">📐 自动匹配 (横屏视频传横版，竖屏传竖版)</option>
+                    <option value="horizontal">🖥️ 优先使用横版封面 (16:9/4:3)</option>
+                    <option value="vertical">📱 优先使用竖版封面 (3:4)</option>
+                  </select>
+                </div>
+                <div class="platform-card-footer">
+                  <button class="btn-xs btn-open-tab" data-plat="xiaohongshu">🌐 打开后台</button>
+                  <button class="btn-xs btn-single-sync" data-plat="xiaohongshu">全量同步</button>
+                  <button class="btn-xs btn-cover-horizontal" data-plat="xiaohongshu" title="直接寻找小红书封面入口并注入【横版封面】">🖥️ 传横版封面</button>
+                  <button class="btn-xs btn-cover-vertical" data-plat="xiaohongshu" title="直接寻找小红书封面入口并注入【竖版封面】">📱 传竖版封面</button>
+                </div>
+              </div>
+
+              <!-- 抖音 -->
+              <div class="platform-card" data-platform="douyin">
+                <div class="platform-card-main">
+                  <label class="platform-check-row">
+                    <input type="checkbox" id="chk_douyin" class="chk-platform-lg" checked>
+                    <div class="platform-meta">
+                      <span class="platform-title">🎵 抖音创作者服务平台</span>
+                      <span class="platform-url">creator.douyin.com</span>
+                    </div>
+                  </label>
+                  <div class="platform-status-badge" id="status_douyin">
+                    <span class="status-indicator"></span>
+                    <span class="status-label">检测中...</span>
+                  </div>
+                </div>
+                <div class="platform-cover-choice">
+                  <span class="cover-choice-label">封面策略:</span>
+                  <select class="select-cover-choice" id="coverType_douyin">
+                    <option value="auto">📐 自动匹配 (横屏传横版，竖屏传竖版)</option>
+                    <option value="horizontal">🖥️ 优先使用横版封面 (4:3)</option>
+                    <option value="vertical">📱 优先使用竖版封面 (3:4)</option>
+                  </select>
+                </div>
+                <div class="platform-card-footer">
+                  <button class="btn-xs btn-open-tab" data-plat="douyin">🌐 打开后台</button>
+                  <button class="btn-xs btn-single-sync" data-plat="douyin">全量同步</button>
+                  <button class="btn-xs btn-cover-horizontal" data-plat="douyin" title="直接寻找抖音横封面入口并注入【横版封面】">🖥️ 传横版封面</button>
+                  <button class="btn-xs btn-cover-vertical" data-plat="douyin" title="直接寻找抖音竖封面入口并注入【竖版封面】">📱 传竖版封面</button>
+                </div>
+              </div>
+
+              <!-- 微信视频号 -->
+              <div class="platform-card" data-platform="wechat_channels">
+                <div class="platform-card-main">
+                  <label class="platform-check-row">
+                    <input type="checkbox" id="chk_wechat_channels" class="chk-platform-lg" checked>
+                    <div class="platform-meta">
+                      <span class="platform-title">📺 微信视频号助手</span>
+                      <span class="platform-url">channels.weixin.qq.com</span>
+                    </div>
+                  </label>
+                  <div class="platform-status-badge" id="status_wechat_channels">
+                    <span class="status-indicator"></span>
+                    <span class="status-label">检测中...</span>
+                  </div>
+                </div>
+                <div class="platform-cover-choice">
+                  <span class="cover-choice-label">封面策略:</span>
+                  <select class="select-cover-choice" id="coverType_wechat_channels">
+                    <option value="auto">📐 自动匹配 (横屏传横版，竖屏传竖版)</option>
+                    <option value="horizontal">🖥️ 优先分享卡片/横版 (4:3)</option>
+                    <option value="vertical">📱 优先主页卡片/竖版 (3:4)</option>
+                  </select>
+                </div>
+                <div class="platform-card-footer">
+                  <button class="btn-xs btn-open-tab" data-plat="wechat_channels">🌐 打开后台</button>
+                  <button class="btn-xs btn-single-sync" data-plat="wechat_channels">全量同步</button>
+                  <button class="btn-xs btn-cover-horizontal" data-plat="wechat_channels" title="直接寻找视频号分享卡片入口并注入【横版封面】">🖥️ 传横版封面</button>
+                  <button class="btn-xs btn-cover-vertical" data-plat="wechat_channels" title="直接寻找视频号主页卡片入口并注入【竖版封面】">📱 传竖版封面</button>
+                </div>
+              </div>
+
+              <!-- 哔哩哔哩 -->
+              <div class="platform-card" data-platform="bilibili">
+                <div class="platform-card-main">
+                  <label class="platform-check-row">
+                    <input type="checkbox" id="chk_bilibili" class="chk-platform-lg" checked>
+                    <div class="platform-meta">
+                      <span class="platform-title">⚡ 哔哩哔哩 (B站) 创作中心</span>
+                      <span class="platform-url">member.bilibili.com</span>
+                    </div>
+                  </label>
+                  <div class="platform-status-badge" id="status_bilibili">
+                    <span class="status-indicator"></span>
+                    <span class="status-label">检测中...</span>
+                  </div>
+                </div>
+                <div class="platform-cover-choice">
+                  <span class="cover-choice-label">封面策略:</span>
+                  <select class="select-cover-choice" id="coverType_bilibili">
+                    <option value="horizontal">🖥️ 标准横版封面 (16:9)</option>
+                    <option value="vertical">📱 竖版封面 (3:4 居中适配)</option>
+                  </select>
+                </div>
+                <div class="platform-card-footer">
+                  <button class="btn-xs btn-open-tab" data-plat="bilibili">🌐 打开后台</button>
+                  <button class="btn-xs btn-single-sync" data-plat="bilibili">全量同步</button>
+                  <button class="btn-xs btn-cover-horizontal" data-plat="bilibili" title="直接寻找B站封面添加入口并注入【横版封面】">🖥️ 传横版封面</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Big Execution Action Card -->
+        <div class="card card-action">
+          <div class="card-body">
+            <button id="btnSubmitAll" class="btn-hero-primary">
+              <span class="hero-btn-icon">🚀</span>
+              <div class="hero-btn-content">
+                <span class="hero-btn-title">一键同步填入所选平台</span>
+                <span class="hero-btn-subtitle">自动注入标题、描述、话题与封面至已勾选的后台页面</span>
+              </div>
+            </button>
+            <div class="action-security-note">
+              <span>🛡️ 人机协同安全闭环：</span> 插件仅负责填入表单与上传素材，最终的各平台「发布/提交」按钮留给你亲自核对后点击！
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Real-Time Console Card -->
+        <div class="card card-console">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="title-icon">💻</span>
+              <span>执行反馈与控制台日志</span>
+            </div>
+            <div class="console-header-right">
+              <span id="logSummaryBadge" class="badge badge-idle">就绪</span>
+              <button id="btnClearLogs" class="btn-text">清空日志</button>
+            </div>
+          </div>
+          <div class="card-body console-body">
+            <div id="logList" class="console-log-list">
+              <div class="log-placeholder">
+                <div class="placeholder-icon">☕</div>
+                <div>等待执行同步任务...</div>
+                <div class="placeholder-sub">填写文案并点击「一键同步填入」，实时处理进度将在此处呈现。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
