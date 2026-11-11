@@ -197,11 +197,20 @@ async function executeFill(tabId, platformId, payload) {
       if (r.result?.logs?.length > 0) {
         hasSuccess = true;
         allLogs.push(...r.result.logs);
+        // Only include warnings from the frame that actually ran
+        if (r.result.warnings) {
+          allWarnings.push(...r.result.warnings);
+        }
       }
-      if (r.result?.warnings?.length > 0) {
-        // Filter out frames that don't have the adapter
-        const meaningful = r.result.warnings.filter(w => !w.includes('未在当前frame找到适配器'));
-        allWarnings.push(...meaningful);
+    }
+
+    // If no frame succeeded, collect warnings from all frames that had adapters
+    if (!hasSuccess) {
+      for (const r of results) {
+        if (r.result?.warnings?.length > 0) {
+          const meaningful = r.result.warnings.filter(w => !w.includes('未在当前frame找到适配器'));
+          allWarnings.push(...meaningful);
+        }
       }
     }
 

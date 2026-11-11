@@ -4,6 +4,10 @@
  */
 
 window.__vsubmitter_helpers = (function() {
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   /**
    * Set native input/textarea value with execCommand + prototype setter for 100% React/Vue3 reactivity
    */
@@ -48,12 +52,13 @@ window.__vsubmitter_helpers = (function() {
 
   /**
    * Set contenteditable text (Draft.js, Quill, ProseMirror, Slate, Semi UI)
+   * Safely handles multiline paragraphs across Quill and ProseMirror
    */
   function setContentEditable(editor, text) {
     if (!editor) return false;
     editor.focus();
 
-    // Strategy 1: execCommand
+    // Strategy 1: execCommand with newline/paragraph handling
     try {
       const selection = window.getSelection();
       const range = document.createRange();
@@ -62,15 +67,31 @@ window.__vsubmitter_helpers = (function() {
       selection.addRange(range);
 
       document.execCommand('delete', false, null);
-      const ok = document.execCommand('insertText', false, text);
-      if (ok) {
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-        editor.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
+
+      const normalized = (text || '').replace(/\r\n/g, '\n');
+      const lines = normalized.split('\n');
+      const isQuill = editor.classList?.contains('ql-editor') || !!editor.closest?.('.ql-editor');
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line) {
+          document.execCommand('insertText', false, line);
+        }
+        if (i < lines.length - 1) {
+          if (isQuill) {
+            document.execCommand('insertParagraph', false, null);
+          } else {
+            document.execCommand('insertText', false, '\n');
+          }
+        }
       }
+
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+      editor.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
     } catch (e) {}
 
-    // Strategy 2: HTML Paragraphs
+    // Strategy 2: HTML Paragraphs fallback
     try {
       const lines = text.split('\n');
       editor.innerHTML = lines.map(line => line.trim() ? `<p>${escapeHtml(line)}</p>` : '<p><br></p>').join('');

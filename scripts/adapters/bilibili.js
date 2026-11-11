@@ -84,19 +84,9 @@ window.__vsubmitter_adapters.bilibili = {
         }
       }
 
-      // 3. Description (B站仅填入首段内容，避免塞入全文)
-      const rawDesc = (description || '').trim();
-      if (rawDesc) {
-        // 优先按空行（连续换行）分割段落；若无空行则按首行截取
-        const paragraphs = rawDesc.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
-        let descText = paragraphs.length > 0 ? paragraphs[0] : rawDesc;
-        if (paragraphs.length <= 1 && descText.includes('\n')) {
-          const lines = descText.split('\n').map(l => l.trim()).filter(Boolean);
-          if (lines.length > 1) {
-            descText = lines[0];
-          }
-        }
-
+      // 3. Description (Quill .ql-editor, textarea, or contenteditable)
+      const descText = (description || '').trim();
+      if (descText) {
         const descEditor = await H.waitForElement(() => {
           return H.findElement([
             '.ql-editor',
@@ -113,8 +103,7 @@ window.__vsubmitter_adapters.bilibili = {
           } else {
             H.setContentEditable(descEditor, descText);
           }
-          const snippet = descText.length > 40 ? descText.slice(0, 40) + '...' : descText;
-          logs.push(`📝 B站视频简介（仅截取第一段，${descText.length}字): "${snippet}"`);
+          logs.push(`📝 B站视频简介已填入 (${descText.length}字)`);
         } else {
           warnings.push('⚠️ 未找到B站简介编辑区');
         }
