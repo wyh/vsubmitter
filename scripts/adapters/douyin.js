@@ -214,23 +214,27 @@ window.__vsubmitter_adapters.douyin = {
 
         if (fullText) {
           descEditor.focus();
-          // 彻底清空 EditorKit 容器，防止多行累加重复
-          while (descEditor.firstChild) {
-            descEditor.removeChild(descEditor.firstChild);
-          }
-          const emptyLine = document.createElement('div');
-          emptyLine.className = 'ace-line';
-          emptyLine.innerHTML = '<div data-line-wrapper="true"><span data-leaf="true"><span data-string="true"></span></span></div>';
-          descEditor.appendChild(emptyLine);
-          descEditor.dispatchEvent(new Event('input', { bubbles: true }));
 
-          // 一次性注入完整描述与话题
-          document.execCommand('insertText', false, fullText);
+          // 1. 原生安全跨行全选并采用 paste 事件注入文本，保留 EditorKit 虚拟 DOM 状态与字数统计
+          const sel = window.getSelection();
+          const range = document.createRange();
+          if (descEditor.firstElementChild && descEditor.lastElementChild) {
+            range.setStart(descEditor.firstElementChild, 0);
+            range.setEnd(descEditor.lastElementChild, descEditor.lastElementChild.childNodes.length);
+          } else {
+            range.selectNodeContents(descEditor);
+          }
+          sel.removeAllRanges();
+          sel.addRange(range);
+
+          const dt = new DataTransfer();
+          dt.setData('text/plain', fullText);
+          descEditor.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
           descEditor.dispatchEvent(new Event('input', { bubbles: true }));
           descEditor.dispatchEvent(new Event('change', { bubbles: true }));
-          await H.sleep(300);
+          await H.sleep(500);
 
-          // 自动激活每一个话题为抖音官方话题气泡 (data-mention)
+          // 2. 自动逐个激活话题标签为抖音官方话题气泡 (<div data-mention="#">)
           let activatedCount = 0;
           if (cleanTags.length > 0) {
             logs.push(`🏷️ 正在将 ${cleanTags.length} 个话题自动激活转换为抖音话题气泡...`);
@@ -239,36 +243,64 @@ window.__vsubmitter_adapters.douyin = {
               descEditor.focus();
               const walker = document.createTreeWalker(descEditor, NodeFilter.SHOW_TEXT);
               let node;
+              let targetNode = null;
+              let targetIdx = -1;
 
               while (node = walker.nextNode()) {
                 const idx = node.nodeValue.indexOf('#' + tag);
                 if (idx !== -1) {
-                  const sel = window.getSelection();
-                  const range = document.createRange();
-                  range.setStart(node, idx + ('#' + tag).length);
-                  range.collapse(true);
-                  sel.removeAllRanges();
-                  sel.addRange(range);
-
-                  const rect = range.getBoundingClientRect();
-                  const opts = { bubbles: true, cancelable: true, view: window, clientX: rect.left, clientY: rect.top };
-                  descEditor.dispatchEvent(new MouseEvent('mousedown', opts));
-                  descEditor.dispatchEvent(new MouseEvent('mouseup', opts));
-                  descEditor.dispatchEvent(new MouseEvent('click', opts));
-
-                  await H.sleep(200);
-
-                  // 触发回车确认选择推荐话题
-                  descEditor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
-                  descEditor.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
-                  descEditor.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
-
-                  await H.sleep(150);
-                  activatedCount++;
+                  targetNode = node;
+                  targetIdx = idx + ('#' + tag).length;
                   break;
                 }
               }
+
+              if (targetNode) {
+                const selTag = window.getSelection();
+                const rTag = document.createRange();
+                rTag.setStart(targetNode, targetIdx);
+                rTag.collapse(true);
+                selTag.removeAllRanges();
+                selTag.addRange(rTag);
+
+                // 在光标位置触发鼠标点击弹出推荐话题浮窗
+                const rect = rTag.getBoundingClientRect();
+                const opts = { bubbles: true, cancelable: true, view: window, clientX: rect.left, clientY: rect.top };
+                descEditor.dispatchEvent(new MouseEvent('mousedown', opts));
+                descEditor.dispatchEvent(new MouseEvent('mouseup', opts));
+                descEditor.dispatchEvent(new MouseEvent('click', opts));
+
+                // 等待下拉推荐项出现并点击第一项
+                let clicked = false;
+                for (let k = 0; k < 12; k++) {
+                  await H.sleep(150);
+                  const item = document.querySelector('.mention-suggest-mount-dom [class*="tag-hash"], .mention-suggest-mount-dom .tag-dVUDkJ');
+                  if (item) {
+                    const irect = item.getBoundingClientRect();
+                    const iopts = { bubbles: true, cancelable: true, view: window, clientX: irect.x + 10, clientY: irect.y + 10 };
+                    item.dispatchEvent(new MouseEvent('mousedown', iopts));
+                    item.dispatchEvent(new MouseEvent('mouseup', iopts));
+                    item.dispatchEvent(new MouseEvent('click', iopts));
+                    clicked = true;
+                    break;
+                  }
+                }
+
+                if (clicked) {
+                  activatedCount++;
+                }
+                await H.sleep(350);
+              }
             }
+
+            // 清理可能残余的浮窗 DOM
+            const lingeringMount = document.querySelector('.mention-suggest-mount-dom');
+            if (lingeringMount) {
+              lingeringMount.remove();
+            }
+
+            descEditor.dispatchEvent(new Event('input', { bubbles: true }));
+            descEditor.dispatchEvent(new Event('change', { bubbles: true }));
             logs.push(`✅ 抖音 ${activatedCount} 个话题已全部自动激活并转为话题气泡`);
           } else {
             logs.push(`📝 抖音作品描述已填入 (${fullText.length}字)`);
