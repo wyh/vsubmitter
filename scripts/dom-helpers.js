@@ -89,6 +89,119 @@ window.__vsubmitter_helpers = (function() {
   }
 
   /**
+   * Safely move selection/cursor to the very end of a contenteditable element
+   */
+  function moveCursorToEnd(element) {
+    if (!element) return;
+    element.focus();
+    try {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch (e) {}
+  }
+
+  /**
+   * Sequentially insert hashtags into contenteditable editors (Xiaohongshu TipTap, Douyin Semi/Slate)
+   * Automatically triggers platform autocomplete dropdown, waits for suggestions, and clicks the candidate/dispatches enter
+   */
+  async function insertHashtags(editor, tags, options = {}) {
+    if (!editor || !tags || tags.length === 0) return 0;
+    const cleanTags = tags.map(t => t.replace(/^#/, '').trim()).filter(Boolean);
+    if (cleanTags.length === 0) return 0;
+
+    editor.focus();
+    moveCursorToEnd(editor);
+
+    // If editor already has text and doesn't end with newline, add separation
+    const existing = (editor.innerText || '').trim();
+    if (existing.length > 0) {
+      try {
+        document.execCommand('insertText', false, '\n\n');
+      } catch (e) {}
+      await sleep(100);
+      moveCursorToEnd(editor);
+    }
+
+    const candidateSelectors = [
+      ...(options.customSelectors || []),
+      // Xiaohongshu TipTap topic popup items
+      '.tippy-box .item.is-selected',
+      '.tippy-box .item',
+      '.tippy-content .item',
+      // Douyin Semi UI topic dropdown items
+      '.semi-popover .semi-dropdown-item',
+      '.semi-portal .semi-dropdown-item',
+      'div.semi-dropdown-item',
+      'li.semi-dropdown-item',
+      // Generic topic / suggestion lists
+      '[class*="topic-suggest"] [class*="item"]',
+      '[class*="topic-item"]',
+      '[class*="suggest-item"]',
+      '[role="listbox"] [role="option"]',
+      '[role="option"]'
+    ];
+
+    let insertedCount = 0;
+
+    for (const tag of cleanTags) {
+      moveCursorToEnd(editor);
+      await sleep(80);
+
+      // 1. Insert "#tag" via execCommand
+      try {
+        document.execCommand('insertText', false, '#' + tag);
+      } catch (e) {
+        const span = document.createElement('span');
+        span.textContent = '#' + tag;
+        editor.appendChild(span);
+      }
+
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+      editor.dispatchEvent(new KeyboardEvent('keyup', { key: tag.slice(-1) || '#', bubbles: true }));
+
+      // 2. Poll for dropdown suggestions (wait up to 500ms)
+      let selected = false;
+      const startTime = Date.now();
+      const timeout = options.timeout || 500;
+
+      while (Date.now() - startTime < timeout) {
+        await sleep(60);
+
+        const candidate = findElement(candidateSelectors);
+        if (candidate) {
+          const rect = candidate.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            candidate.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+            candidate.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+            if (typeof candidate.click === 'function') candidate.click();
+            selected = true;
+            break;
+          }
+        }
+      }
+
+      // 3. Fallback if no dropdown item appeared: confirm with Enter & Space
+      if (!selected) {
+        editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+        editor.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+        editor.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+        await sleep(50);
+        document.execCommand('insertText', false, ' ');
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      insertedCount++;
+      await sleep(150);
+    }
+
+    return insertedCount;
+  }
+
+  /**
    * Inject File object into <input type="file"> via DataTransfer
    */
   async function injectFile(fileInput, filePayload) {
@@ -266,6 +379,8 @@ window.__vsubmitter_helpers = (function() {
   return {
     setInputValue,
     setContentEditable,
+    moveCursorToEnd,
+    insertHashtags,
     injectFile,
     clickElement,
     findInputByLabel,

@@ -159,9 +159,11 @@ window.__vsubmitter_adapters.xiaohongshu = {
         }
       }
 
-      // 3. Description & Hashtags
+      // 3. Description & Hashtags (自动从下拉弹窗中选中转为真实话题胶囊)
       const descEditor = await H.waitForElement(() => {
         return H.findElement([
+          '.tiptap.ProseMirror',
+          'div.tiptap',
           'p[data-placeholder*="输入正文描述"]',
           '#post-textarea',
           'div[contenteditable="true"]',
@@ -170,19 +172,25 @@ window.__vsubmitter_adapters.xiaohongshu = {
       }, 6000);
 
       if (descEditor) {
-        let content = (description || '').trim();
-        const cleanTags = (tags || []).map(t => t.replace(/^#/, '').trim()).filter(Boolean).slice(0, 10);
-        if (cleanTags.length > 0) {
-          const tagLine = cleanTags.map(t => `#${t}`).join(' ') + ' ';
-          content = content ? `${content}\n\n${tagLine}` : tagLine;
+        const descText = (description || '').trim();
+        if (descText) {
+          H.setContentEditable(descEditor, descText);
+          await H.sleep(200);
         }
 
-        if (content) {
-          H.setContentEditable(descEditor, content);
-          logs.push(`📝 正文描述与 ${cleanTags.length} 个话题已填入`);
+        const cleanTags = (tags || []).map(t => t.replace(/^#/, '').trim()).filter(Boolean).slice(0, 10);
+        if (cleanTags.length > 0) {
+          logs.push(`🏷️ 正在向小红书录入 ${cleanTags.length} 个话题并自动从下拉浮窗选中激活为话题标签...`);
+          const count = await H.insertHashtags(descEditor, cleanTags, {
+            platform: 'xiaohongshu',
+            customSelectors: ['.tippy-box .item', '.tippy-content .item']
+          });
+          logs.push(`✅ 小红书 ${count} 个话题已全部自动选中转为话题标签`);
+        } else if (descText) {
+          logs.push(`📝 小红书正文描述已填入 (${descText.length}字)`);
         }
       } else {
-        warnings.push('⚠️ 未找到正文描述输入区');
+        warnings.push('⚠️ 未找到小红书正文描述输入区');
       }
     }
 

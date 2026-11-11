@@ -188,7 +188,7 @@ window.__vsubmitter_adapters.douyin = {
         }
       }
 
-      // 3. Description & Hashtags
+      // 3. Description & Hashtags (自动从下拉弹窗中选中转为真实话题标签)
       const descEditor = await H.waitForElement(() => {
         return H.findElement([
           'div.zone-container[contenteditable="true"]',
@@ -198,19 +198,32 @@ window.__vsubmitter_adapters.douyin = {
       }, 6000);
 
       if (descEditor) {
-        let fullText = (description || '').trim();
-        const cleanTags = (tags || []).map(t => t.replace(/^#/, '').trim()).filter(Boolean);
-        if (cleanTags.length > 0) {
-          const tagLine = cleanTags.map(t => `#${t}`).join(' ') + ' ';
-          fullText = fullText ? `${fullText}\n\n${tagLine}` : tagLine;
+        const descText = (description || '').trim();
+        if (descText) {
+          H.setContentEditable(descEditor, descText);
+          await H.sleep(200);
         }
 
-        if (fullText) {
-          H.setContentEditable(descEditor, fullText);
-          logs.push(`📝 作品描述与 ${cleanTags.length} 个话题已录入富文本区`);
+        const cleanTags = (tags || []).map(t => t.replace(/^#/, '').trim()).filter(Boolean).slice(0, 10);
+        if (cleanTags.length > 0) {
+          logs.push(`🏷️ 正在向抖音录入 ${cleanTags.length} 个话题并自动从下拉浮窗选中激活为话题标签...`);
+          const count = await H.insertHashtags(descEditor, cleanTags, {
+            platform: 'douyin',
+            customSelectors: [
+              '.semi-popover .semi-dropdown-item',
+              '.semi-portal .semi-dropdown-item',
+              'div.semi-dropdown-item',
+              'li.semi-dropdown-item',
+              '[class*="suggest-item"]',
+              '[class*="topic-item"]'
+            ]
+          });
+          logs.push(`✅ 抖音 ${count} 个话题已全部自动选中转为话题标签`);
+        } else if (descText) {
+          logs.push(`📝 抖音作品描述已填入 (${descText.length}字)`);
         }
       } else {
-        warnings.push('⚠️ 未找到描述编辑区');
+        warnings.push('⚠️ 未找到抖音作品描述编辑区');
       }
     }
 
