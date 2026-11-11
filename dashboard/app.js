@@ -166,6 +166,10 @@ function updateFieldCounters() {
   // Parse tags
   const tags = parseTagsString(tagsStr);
   tagsCountEl.textContent = `${tags.length} 个标签`;
+  const badgeDyTags = document.getElementById('badgeDyTags');
+  if (badgeDyTags) {
+    badgeDyTags.className = `limit-badge ${tags.length > 5 ? 'warn' : ''}`;
+  }
   renderTagPills(tags);
 
   saveDraft();

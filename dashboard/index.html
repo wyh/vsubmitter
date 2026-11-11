@@ -130,7 +130,10 @@
                 <label for="fieldTags" class="form-label">
                   <span>话题标签</span>
                 </label>
-                <span class="char-counter" id="tagsCount">0 个标签</span>
+                <div class="label-badges">
+                  <span class="limit-badge" id="badgeDyTags" title="抖音最多支持 5 个话题标签">抖音: max 5个</span>
+                  <span class="char-counter" id="tagsCount">0 个标签</span>
+                </div>
               </div>
               <input type="text" id="fieldTags" class="input-text" placeholder="输入话题标签（空格或 # 分隔），例如: #AI科研 #实证研究 #文献检索">
               <div id="tagsPillsContainer" class="tags-container"></div>

@@ -188,7 +188,7 @@ window.__vsubmitter_adapters.douyin = {
         }
       }
 
-      // 3. Description & Hashtags (自动从下拉弹窗中选中转为真实话题标签)
+      // 3. Description & Hashtags (严格限制最多 5 个 tag，防止被抖音拦截)
       const descEditor = await H.waitForElement(() => {
         return H.findElement([
           'div.zone-container[contenteditable="true"]',
@@ -198,29 +198,38 @@ window.__vsubmitter_adapters.douyin = {
       }, 6000);
 
       if (descEditor) {
-        const descText = (description || '').trim();
-        if (descText) {
-          H.setContentEditable(descEditor, descText);
-          await H.sleep(200);
+        let fullText = (description || '').trim();
+
+        // 抖音官方严格限制最多 5 个话题标签
+        const allCleanTags = (tags || []).map(t => t.replace(/^#/, '').trim()).filter(Boolean);
+        const cleanTags = allCleanTags.slice(0, 5);
+        if (allCleanTags.length > 5) {
+          warnings.push(`⚠️ 抖音平台最多仅支持 5 个话题标签，已为您自动精选前 5 个: ${cleanTags.map(t => '#' + t).join(' ')}`);
         }
 
-        const cleanTags = (tags || []).map(t => t.replace(/^#/, '').trim()).filter(Boolean).slice(0, 10);
         if (cleanTags.length > 0) {
-          logs.push(`🏷️ 正在向抖音录入 ${cleanTags.length} 个话题并自动从下拉浮窗选中激活为话题标签...`);
-          const count = await H.insertHashtags(descEditor, cleanTags, {
-            platform: 'douyin',
-            customSelectors: [
-              '.semi-popover .semi-dropdown-item',
-              '.semi-portal .semi-dropdown-item',
-              'div.semi-dropdown-item',
-              'li.semi-dropdown-item',
-              '[class*="suggest-item"]',
-              '[class*="topic-item"]'
-            ]
-          });
-          logs.push(`✅ 抖音 ${count} 个话题已全部自动选中转为话题标签`);
-        } else if (descText) {
-          logs.push(`📝 抖音作品描述已填入 (${descText.length}字)`);
+          const tagLine = cleanTags.map(t => `#${t}`).join(' ') + ' ';
+          fullText = fullText ? `${fullText}\n\n${tagLine}` : tagLine;
+        }
+
+        if (fullText) {
+          descEditor.focus();
+          // 彻底清空 EditorKit 容器，防止多行累加重复
+          while (descEditor.firstChild) {
+            descEditor.removeChild(descEditor.firstChild);
+          }
+          const emptyLine = document.createElement('div');
+          emptyLine.className = 'ace-line';
+          emptyLine.innerHTML = '<div data-line-wrapper="true"><span data-leaf="true"><span data-string="true"></span></span></div>';
+          descEditor.appendChild(emptyLine);
+          descEditor.dispatchEvent(new Event('input', { bubbles: true }));
+
+          // 一次性注入完整描述与话题
+          document.execCommand('insertText', false, fullText);
+          descEditor.dispatchEvent(new Event('input', { bubbles: true }));
+          descEditor.dispatchEvent(new Event('change', { bubbles: true }));
+
+          logs.push(`📝 抖音作品描述与 ${cleanTags.length} 个话题（已严格限制5个以内）已填入`);
         }
       } else {
         warnings.push('⚠️ 未找到抖音作品描述编辑区');
