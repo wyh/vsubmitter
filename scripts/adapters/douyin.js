@@ -188,7 +188,7 @@ window.__vsubmitter_adapters.douyin = {
         }
       }
 
-      // 3. Description & Hashtags (严格限制最多 5 个 tag，防止被抖音拦截)
+      // 3. Description & Hashtags (严格限制最多 5 个 tag 并自动激活为话题气泡)
       const descEditor = await H.waitForElement(() => {
         return H.findElement([
           'div.zone-container[contenteditable="true"]',
@@ -228,8 +228,51 @@ window.__vsubmitter_adapters.douyin = {
           document.execCommand('insertText', false, fullText);
           descEditor.dispatchEvent(new Event('input', { bubbles: true }));
           descEditor.dispatchEvent(new Event('change', { bubbles: true }));
+          await H.sleep(300);
 
-          logs.push(`📝 抖音作品描述与 ${cleanTags.length} 个话题（已严格限制5个以内）已填入`);
+          // 自动激活每一个话题为抖音官方话题气泡 (data-mention)
+          let activatedCount = 0;
+          if (cleanTags.length > 0) {
+            logs.push(`🏷️ 正在将 ${cleanTags.length} 个话题自动激活转换为抖音话题气泡...`);
+
+            for (const tag of cleanTags) {
+              descEditor.focus();
+              const walker = document.createTreeWalker(descEditor, NodeFilter.SHOW_TEXT);
+              let node;
+
+              while (node = walker.nextNode()) {
+                const idx = node.nodeValue.indexOf('#' + tag);
+                if (idx !== -1) {
+                  const sel = window.getSelection();
+                  const range = document.createRange();
+                  range.setStart(node, idx + ('#' + tag).length);
+                  range.collapse(true);
+                  sel.removeAllRanges();
+                  sel.addRange(range);
+
+                  const rect = range.getBoundingClientRect();
+                  const opts = { bubbles: true, cancelable: true, view: window, clientX: rect.left, clientY: rect.top };
+                  descEditor.dispatchEvent(new MouseEvent('mousedown', opts));
+                  descEditor.dispatchEvent(new MouseEvent('mouseup', opts));
+                  descEditor.dispatchEvent(new MouseEvent('click', opts));
+
+                  await H.sleep(200);
+
+                  // 触发回车确认选择推荐话题
+                  descEditor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                  descEditor.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+                  descEditor.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+
+                  await H.sleep(150);
+                  activatedCount++;
+                  break;
+                }
+              }
+            }
+            logs.push(`✅ 抖音 ${activatedCount} 个话题已全部自动激活并转为话题气泡`);
+          } else {
+            logs.push(`📝 抖音作品描述已填入 (${fullText.length}字)`);
+          }
         }
       } else {
         warnings.push('⚠️ 未找到抖音作品描述编辑区');
