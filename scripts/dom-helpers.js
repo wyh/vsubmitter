@@ -58,7 +58,21 @@ window.__vsubmitter_helpers = (function() {
     if (!editor) return false;
     editor.focus();
 
-    // Strategy 1: execCommand with newline/paragraph handling
+    const normalized = (text || '').replace(/\r\n/g, '\n');
+    const lines = normalized.split('\n');
+    const isQuill = editor.classList?.contains('ql-editor') || !!editor.closest?.('.ql-editor');
+
+    // Quill 专属处理：Quill 的 MutationObserver (Parchment Scroll) 会将 execCommand('insertParagraph')
+    // 产生的 <div> 节点视作非法节点并清空为 <p><br></p>，导致只剩第一段。
+    // 直接写入标准 <p> 结构可触发 Quill MutationObserver 正确解析全部段落并同步字数。
+    if (isQuill) {
+      editor.innerHTML = lines.map(line => line.trim() ? `<p>${escapeHtml(line)}</p>` : '<p><br></p>').join('');
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+      editor.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    }
+
+    // Strategy 1: execCommand with newline handling for ProseMirror / TipTap / general contenteditable
     try {
       const selection = window.getSelection();
       const range = document.createRange();
@@ -68,21 +82,13 @@ window.__vsubmitter_helpers = (function() {
 
       document.execCommand('delete', false, null);
 
-      const normalized = (text || '').replace(/\r\n/g, '\n');
-      const lines = normalized.split('\n');
-      const isQuill = editor.classList?.contains('ql-editor') || !!editor.closest?.('.ql-editor');
-
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         if (line) {
           document.execCommand('insertText', false, line);
         }
         if (i < lines.length - 1) {
-          if (isQuill) {
-            document.execCommand('insertParagraph', false, null);
-          } else {
-            document.execCommand('insertText', false, '\n');
-          }
+          document.execCommand('insertText', false, '\n');
         }
       }
 
