@@ -27,8 +27,37 @@ const PLATFORMS = {
     name: '哔哩哔哩',
     publishKeywords: ['/platform/upload/video'],
     defaultUrl: 'https://member.bilibili.com/platform/upload/video/frame'
+  },
+  wechat_mp: {
+    id: 'wechat_mp',
+    name: '微信公众号（贴图）',
+    publishKeywords: ['createType=8'],
+    defaultUrl: 'https://mp.weixin.qq.com/'
   }
 };
+
+/**
+ * Extract logged-in session token from any open mp.weixin.qq.com backend tab
+ */
+function extractWechatMpToken(tabs) {
+  for (const t of tabs) {
+    const u = t.url || '';
+    if (!u.includes('mp.weixin.qq.com/cgi-bin/')) continue;
+    const m = u.match(/[?&]token=([^&#]+)/);
+    if (m && m[1]) return m[1];
+  }
+  return null;
+}
+
+function buildWechatMpImageUrl(token) {
+  if (!token) return 'https://mp.weixin.qq.com/';
+  return `https://mp.weixin.qq.com/cgi-bin/appmsg?t=media/appmsg_edit_v2&action=edit&isNew=1&type=77&createType=8&token=${encodeURIComponent(token)}&lang=zh_CN`;
+}
+
+function isWechatMpImagePublishUrl(url) {
+  const u = url || '';
+  return u.includes('mp.weixin.qq.com/cgi-bin/appmsg') && u.includes('createType=8');
+}
 
 /**
  * Click extension icon in toolbar -> open or focus full dashboard tab
@@ -62,6 +91,34 @@ async function getPlatformTabs() {
   }
 
   for (const [key, plat] of Object.entries(PLATFORMS)) {
+    // Special detection for WeChat Official Account (贴图) to avoid matching /s/ public articles
+    if (key === 'wechat_mp') {
+      const picTabs = tabs.filter(t => isWechatMpImagePublishUrl(t.url));
+      if (picTabs.length > 0) {
+        const activePic = picTabs.find(t => t.active) || picTabs[0];
+        result[key].tab = {
+          id: activePic.id,
+          title: activePic.title,
+          url: activePic.url,
+          isPublish: true
+        };
+        continue;
+      }
+
+      const backendTabs = tabs.filter(t => (t.url || '').includes('mp.weixin.qq.com/cgi-bin/'));
+      if (backendTabs.length > 0) {
+        const activeBg = backendTabs.find(t => t.active) || backendTabs[0];
+        result[key].tab = {
+          id: activeBg.id,
+          title: activeBg.title,
+          url: activeBg.url,
+          isPublish: false,
+          isBackendOnly: true
+        };
+      }
+      continue;
+    }
+
     // 1. First priority: tabs that are on the actual publish URL
     const publishTabs = tabs.filter(t => {
       const u = t.url || '';
@@ -118,6 +175,41 @@ async function ensurePlatformTab(platformId) {
   const plat = PLATFORMS[platformId];
   if (!plat) throw new Error(`Unknown platform: ${platformId}`);
 
+  // Special flow for WeChat Official Account (贴图):
+  // Preserve the user's home backend tab and open a new createType=8 tab using its session token.
+  if (platformId === 'wechat_mp') {
+    const allTabs = await chrome.tabs.query({});
+    const existingPicTab = allTabs.find(t => isWechatMpImagePublishUrl(t.url));
+    if (existingPicTab) {
+      await chrome.tabs.update(existingPicTab.id, { active: true });
+      if (existingPicTab.windowId) {
+        await chrome.windows.update(existingPicTab.windowId, { focused: true });
+      }
+      return existingPicTab.id;
+    }
+
+    const token = extractWechatMpToken(allTabs);
+    if (token) {
+      const newTab = await chrome.tabs.create({ url: buildWechatMpImageUrl(token), active: true });
+      await waitForTabReady(newTab.id);
+      return newTab.id;
+    }
+
+    // No logged-in MP tab yet -> open mp.weixin.qq.com; if cookie auto-redirects with token, jump directly to 贴图
+    const loginTab = await chrome.tabs.create({ url: 'https://mp.weixin.qq.com/', active: true });
+    await waitForTabReady(loginTab.id);
+    await new Promise(r => setTimeout(r, 1000));
+    try {
+      const refreshed = await chrome.tabs.get(loginTab.id);
+      const m = (refreshed.url || '').match(/[?&]token=([^&#]+)/);
+      if (m && m[1]) {
+        await chrome.tabs.update(loginTab.id, { url: buildWechatMpImageUrl(m[1]), active: true });
+        await waitForTabReady(loginTab.id);
+      }
+    } catch (e) {}
+    return loginTab.id;
+  }
+
   const status = await getPlatformTabs();
   const existingTab = status[platformId]?.tab;
 
@@ -146,8 +238,20 @@ async function executeFill(tabId, platformId, payload) {
   const plat = PLATFORMS[platformId];
   try {
     // If the current tab URL is not on the publish page, navigate it first
-    const tab = await chrome.tabs.get(tabId);
-    if (tab && plat && !plat.publishKeywords.some(kw => (tab.url || '').includes(kw))) {
+    let tab = await chrome.tabs.get(tabId);
+    if (platformId === 'wechat_mp') {
+      if (!isWechatMpImagePublishUrl(tab?.url)) {
+        tabId = await ensurePlatformTab('wechat_mp');
+        tab = await chrome.tabs.get(tabId);
+      }
+      if (!isWechatMpImagePublishUrl(tab?.url)) {
+        return {
+          success: false,
+          logs: [],
+          warnings: ['⚠️ 尚未进入微信公众号「贴图」发布页，请先在打开的 mp.weixin.qq.com 标签页扫码登录后台后重试']
+        };
+      }
+    } else if (tab && plat && !plat.publishKeywords.some(kw => (tab.url || '').includes(kw))) {
       await chrome.tabs.update(tabId, { url: plat.defaultUrl });
       await waitForTabReady(tabId);
     }

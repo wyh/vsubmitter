@@ -1,11 +1,12 @@
 # vsubmitter - 多平台自媒体内容一键提交工作台
 
-`vsubmitter` 是一款专为自媒体创作者打造的 Chrome 浏览器扩展（Manifest V3 标准）。告别狭窄拥挤的小弹窗，点击扩展图标即可直接在浏览器中打开**宽大舒适的独立控制台标签页**，支持一键将视频的 **标题、正文描述、话题标签及横/竖版封面** 自动同步填入四大主流创作者后台：
+`vsubmitter` 是一款专为自媒体创作者打造的 Chrome 浏览器扩展（Manifest V3 标准）。告别狭窄拥挤的小弹窗，点击扩展图标即可直接在浏览器中打开**宽大舒适的独立控制台标签页**，支持一键将 **标题、正文描述、话题标签、横/竖版封面、视频及多图** 自动同步填入五大主流创作者后台（一次性搞定视频投稿 + 微信公众号贴图）：
 
 - 📕 **小红书** (`creator.xiaohongshu.com`)
 - 🎵 **抖音** (`creator.douyin.com`)
 - 📺 **微信视频号** (`channels.weixin.qq.com`)
 - ⚡ **哔哩哔哩 (B站)** (`member.bilibili.com`)
+- 💚 **微信公众号（贴图）** (`mp.weixin.qq.com`)
 
 ---
 
@@ -57,10 +58,11 @@ vsubmitter/
 ├── scripts/
 │   ├── dom-helpers.js        # DOM 与富文本操作辅助库
 │   └── adapters/
-│       ├── douyin.js         # 抖音平台适配器（支持横竖封面）
-│       ├── bilibili.js       # B站平台适配器（横版封面、标签回车）
-│       ├── wechat_channels.js# 微信视频号适配器（短标题过滤、横竖封面）
-│       └── xiaohongshu.js    # 小红书平台适配器（严格20字截断、竖版封面）
+│   │   ├── douyin.js         # 抖音平台适配器（支持横竖封面）
+│   │   ├── bilibili.js       # B站平台适配器（横版封面、标签回车）
+│   │   ├── wechat_channels.js# 微信视频号适配器（短标题过滤、横竖封面）
+│   │   ├── wechat_mp.js      # 微信公众号贴图适配器（20字标题、多图上传、#话题自动高亮）
+│   │   └── xiaohongshu.js    # 小红书平台适配器（严格20字截断、竖版封面）
 ├── icons/                    # 扩展图标 (16/32/48/128px)
 └── README.md
 ```

@@ -7,6 +7,7 @@
 let currentVideoFile = null;
 let currentCoverVertical = null;
 let currentCoverHorizontal = null;
+let currentMpImages = [];
 let platformTabsStatus = {};
 
 // Elements: Form Inputs
@@ -33,6 +34,7 @@ const badgeXhs = document.getElementById('badgeXhs');
 const badgeDy = document.getElementById('badgeDy');
 const badgeWx = document.getElementById('badgeWx');
 const badgeBili = document.getElementById('badgeBili');
+const badgeMp = document.getElementById('badgeMp');
 
 // Video Elements
 const videoFileInput = document.getElementById('videoFileInput');
@@ -65,6 +67,17 @@ const coverHorizontalFileName = document.getElementById('coverHorizontalFileName
 const coverHorizontalFileSize = document.getElementById('coverHorizontalFileSize');
 const btnChangeCoverHorizontal = document.getElementById('btnChangeCoverHorizontal');
 const btnRemoveCoverHorizontal = document.getElementById('btnRemoveCoverHorizontal');
+
+// WeChat MP Multi-Image Elements
+const mpImagesFileInput = document.getElementById('mpImagesFileInput');
+const mpImagesDropzone = document.getElementById('mpImagesDropzone');
+const mpImagesDropIdle = document.getElementById('mpImagesDropIdle');
+const mpImagesLoaded = document.getElementById('mpImagesLoaded');
+const mpImagesGrid = document.getElementById('mpImagesGrid');
+const mpImagesCountBadge = document.getElementById('mpImagesCountBadge');
+const btnAddMoreMpImages = document.getElementById('btnAddMoreMpImages');
+const btnClearMpImages = document.getElementById('btnClearMpImages');
+const btnCopyCoversToMp = document.getElementById('btnCopyCoversToMp');
 
 // Action Buttons
 const btnLoadDemo = document.getElementById('btnLoadDemo');
@@ -148,6 +161,14 @@ function parseMarkdownContent(text) {
   return { title, description, tags };
 }
 
+function calcWechatTitleLength(str) {
+  let halfUnits = 0;
+  for (const ch of (str || '')) {
+    halfUnits += ch.charCodeAt(0) <= 127 ? 1 : 2;
+  }
+  return Math.ceil(halfUnits / 2);
+}
+
 // ── UI Updates ───────────────────────────────────────────────────────────────
 function updateFieldCounters() {
   const title = fieldTitleEl.value;
@@ -162,6 +183,11 @@ function updateFieldCounters() {
   badgeDy.className = `limit-badge ${title.length > 30 ? 'warn' : ''}`;
   badgeWx.className = `limit-badge ${(title.length < 6 || title.length > 16) ? 'warn' : ''}`;
   badgeBili.className = `limit-badge ${title.length > 80 ? 'warn' : ''}`;
+  if (badgeMp) {
+    const mpLen = calcWechatTitleLength(title);
+    badgeMp.className = `limit-badge ${mpLen > 20 ? 'warn' : ''}`;
+    badgeMp.textContent = `公众号贴图: ${mpLen}/20字`;
+  }
 
   // Parse tags
   const tags = parseTagsString(tagsStr);
@@ -426,6 +452,142 @@ btnRemoveCoverHorizontal.addEventListener('click', (e) => {
   coverHorizontalPreviewImg.src = '';
 });
 
+// ── WeChat MP Multi-Image Handlers ────────────────────────────────────────────
+function renderMpImagesGallery() {
+  if (!mpImagesGrid || !mpImagesCountBadge) return;
+  mpImagesCountBadge.textContent = `${currentMpImages.length} / 20 张`;
+
+  if (currentMpImages.length === 0) {
+    mpImagesLoaded.classList.add('hidden');
+    mpImagesDropIdle.classList.remove('hidden');
+    mpImagesGrid.innerHTML = '';
+    return;
+  }
+
+  mpImagesDropIdle.classList.add('hidden');
+  mpImagesLoaded.classList.remove('hidden');
+  mpImagesGrid.innerHTML = '';
+
+  currentMpImages.forEach((img, idx) => {
+    const card = document.createElement('div');
+    card.className = 'mp-image-thumb-card';
+    card.innerHTML = `
+      <div class="mp-image-thumb-wrap">
+        <img src="${img.dataUrl}" alt="${escapeHtml(img.name)}">
+        <span class="mp-image-index">${idx + 1}</span>
+      </div>
+      <div class="mp-image-name" title="${escapeHtml(img.name)}">${escapeHtml(img.name)}</div>
+      <div class="mp-image-actions">
+        <button type="button" class="mp-img-btn" data-act="left" data-idx="${idx}" title="前移" ${idx === 0 ? 'disabled' : ''}>←</button>
+        <button type="button" class="mp-img-btn" data-act="right" data-idx="${idx}" title="后移" ${idx === currentMpImages.length - 1 ? 'disabled' : ''}>→</button>
+        <button type="button" class="mp-img-btn danger" data-act="del" data-idx="${idx}" title="移除">×</button>
+      </div>
+    `;
+    mpImagesGrid.appendChild(card);
+  });
+}
+
+async function addMpImageFiles(files) {
+  const imageFiles = Array.from(files).filter(f => {
+    const name = (f.name || '').toLowerCase();
+    return (f.type && f.type.startsWith('image/')) || /\.(png|jpe?g|webp|gif|bmp)$/i.test(name);
+  });
+  if (imageFiles.length === 0) return;
+
+  let added = 0;
+  for (const file of imageFiles) {
+    if (currentMpImages.length >= 20) {
+      addConsoleLog('warn', '⚠️ 微信公众号贴图最多支持 20 张图片，超出部分已忽略');
+      break;
+    }
+    const dataUrl = await readFileAsDataURL(file);
+    currentMpImages.push({
+      name: file.name || `mp_image_${currentMpImages.length + 1}.png`,
+      type: file.type || 'image/png',
+      size: file.size,
+      dataUrl
+    });
+    added++;
+  }
+  if (added > 0) {
+    renderMpImagesGallery();
+    addConsoleLog('info', `💚 已添加 ${added} 张微信公众号贴图图片（当前共 ${currentMpImages.length} 张）`);
+  }
+}
+
+if (mpImagesDropzone && mpImagesFileInput) {
+  mpImagesDropzone.addEventListener('click', (e) => {
+    if (e.target.closest('.mp-image-thumb-card') || e.target.closest('.file-card-actions')) return;
+    mpImagesFileInput.click();
+  });
+
+  mpImagesFileInput.addEventListener('change', async (e) => {
+    if (e.target.files.length > 0) {
+      await addMpImageFiles(e.target.files);
+      mpImagesFileInput.value = '';
+    }
+  });
+
+  setupDragDrop(mpImagesDropzone, async (files) => {
+    await addMpImageFiles(files);
+  });
+
+  mpImagesGrid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.mp-img-btn');
+    if (!btn) return;
+    e.stopPropagation();
+    const act = btn.getAttribute('data-act');
+    const idx = parseInt(btn.getAttribute('data-idx'), 10);
+    if (Number.isNaN(idx) || idx < 0 || idx >= currentMpImages.length) return;
+
+    if (act === 'del') {
+      currentMpImages.splice(idx, 1);
+    } else if (act === 'left' && idx > 0) {
+      [currentMpImages[idx - 1], currentMpImages[idx]] = [currentMpImages[idx], currentMpImages[idx - 1]];
+    } else if (act === 'right' && idx < currentMpImages.length - 1) {
+      [currentMpImages[idx + 1], currentMpImages[idx]] = [currentMpImages[idx], currentMpImages[idx + 1]];
+    }
+    renderMpImagesGallery();
+  });
+
+  btnAddMoreMpImages?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    mpImagesFileInput.click();
+  });
+
+  btnClearMpImages?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    currentMpImages = [];
+    mpImagesFileInput.value = '';
+    renderMpImagesGallery();
+    addConsoleLog('info', '已清空微信公众号贴图列表');
+  });
+
+  btnCopyCoversToMp?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const candidates = [currentCoverVertical, currentCoverHorizontal].filter(Boolean);
+    if (candidates.length === 0) {
+      addConsoleLog('warn', '⚠️ 上方尚未上传竖版或横版封面');
+      return;
+    }
+    let added = 0;
+    for (const c of candidates) {
+      if (currentMpImages.length >= 20) break;
+      const dup = currentMpImages.some(x => x.dataUrl === c.dataUrl);
+      if (!dup) {
+        currentMpImages.push({ ...c });
+        added++;
+      }
+    }
+    renderMpImagesGallery();
+    if (added > 0) {
+      addConsoleLog('success', `📎 已将 ${added} 张现有封面加入公众号贴图列表（当前共 ${currentMpImages.length} 张）`);
+    } else {
+      addConsoleLog('info', '现有封面已在公众号贴图列表中');
+    }
+  });
+}
+
 // ── Global Drag & Drop Helper ─────────────────────────────────────────────────
 function setupDragDrop(el, onDropFiles) {
   el.addEventListener('dragover', (e) => {
@@ -508,7 +670,13 @@ async function refreshPlatformStatus() {
 
         if (plat.tab) {
           dot.className = 'status-indicator online';
-          label.textContent = `已打开 (标签页 #${plat.tab.id})`;
+          if (key === 'wechat_mp' && plat.tab.isBackendOnly) {
+            label.textContent = `已登录后台 (将自动开贴图页)`;
+          } else if (key === 'wechat_mp' && plat.tab.isPublish) {
+            label.textContent = `已打开贴图页 (#${plat.tab.id})`;
+          } else {
+            label.textContent = `已打开 (标签页 #${plat.tab.id})`;
+          }
           label.title = plat.tab.title || plat.tab.url;
         } else {
           dot.className = 'status-indicator offline';
@@ -630,17 +798,17 @@ async function runSubmit(targetPlatforms = null, options = {}) {
     return;
   }
 
-  if (isCoverOnly && !currentCoverVertical && !currentCoverHorizontal) {
-    alert('请先在左侧上传或通过 Cmd+V 粘贴封面图片！');
+  if (isCoverOnly && !currentCoverVertical && !currentCoverHorizontal && currentMpImages.length === 0) {
+    alert('请先在左侧上传或通过 Cmd+V 粘贴封面/贴图图片！');
     return;
   }
 
   btnSubmitAll.disabled = true;
-  btnSubmitAll.querySelector('.hero-btn-title').textContent = isCoverOnly ? '正在补传封面中...' : '正在同步填入中...';
+  btnSubmitAll.querySelector('.hero-btn-title').textContent = isCoverOnly ? '正在补传图片/封面中...' : '正在同步填入中...';
   logSummaryBadge.textContent = '执行中';
   logSummaryBadge.className = 'badge badge-running';
 
-  const platforms = targetPlatforms || ['xiaohongshu', 'douyin', 'wechat_channels', 'bilibili'].filter(key => {
+  const platforms = targetPlatforms || ['xiaohongshu', 'douyin', 'wechat_channels', 'bilibili', 'wechat_mp'].filter(key => {
     const chk = document.getElementById(`chk_${key}`);
     return chk && chk.checked;
   });
@@ -733,7 +901,12 @@ async function runSubmit(targetPlatforms = null, options = {}) {
         name: currentCoverHorizontal.name,
         type: currentCoverHorizontal.type,
         dataUrl: currentCoverHorizontal.dataUrl
-      } : null
+      } : null,
+      mpImages: platId === 'wechat_mp' ? currentMpImages.map(img => ({
+        name: img.name,
+        type: img.type,
+        dataUrl: img.dataUrl
+      })) : []
     };
 
     try {
@@ -818,6 +991,11 @@ btnClearAll.addEventListener('click', () => {
     coverHorizontalFileInput.value = '';
     coverHorizontalLoaded.classList.add('hidden');
     coverHorizontalDropIdle.classList.remove('hidden');
+
+    // Reset WeChat MP multi-images
+    currentMpImages = [];
+    if (mpImagesFileInput) mpImagesFileInput.value = '';
+    renderMpImagesGallery();
 
     chrome.storage.local.remove(['draft']);
     addConsoleLog('info', '工作台已清空重置');

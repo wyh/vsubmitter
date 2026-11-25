@@ -107,6 +107,7 @@
                   <span class="limit-badge" id="badgeDy">抖音: max 30字</span>
                   <span class="limit-badge" id="badgeWx">视频号短标题: 15字</span>
                   <span class="limit-badge" id="badgeBili">B站: max 80字</span>
+                  <span class="limit-badge" id="badgeMp">公众号贴图: max 20字</span>
                   <span class="char-counter" id="titleCharCount">0 字</span>
                 </div>
               </div>
@@ -246,8 +247,38 @@
               </div>
             </div>
 
+            <!-- WeChat Official Account (贴图) Multi-Image Dropzone -->
+            <div class="media-section-block mp-images-block">
+              <div class="media-block-header">
+                <div class="mp-header-left">
+                  <span class="media-block-title">💚 微信公众号贴图图片（支持多图批量拖入）</span>
+                  <span class="media-block-badge" id="mpImagesCountBadge">0 / 20 张</span>
+                </div>
+                <div class="mp-header-actions">
+                  <button type="button" class="btn-xs" id="btnCopyCoversToMp" title="将上方已选的竖版/横版封面一键加入贴图列表">📎 加入现有封面</button>
+                  <span class="media-block-hint">留空则自动复用上方封面图</span>
+                </div>
+              </div>
+              <div class="big-dropzone dropzone-mp-images" id="mpImagesDropzone">
+                <input type="file" id="mpImagesFileInput" accept="image/*,.png,.jpg,.jpeg,.webp,.gif,.bmp" multiple class="file-hidden">
+                <div class="dropzone-idle" id="mpImagesDropIdle">
+                  <div class="dropzone-art">🖼️</div>
+                  <div class="dropzone-primary-text">批量拖拽多张图片到此处，或点击选择（最多 20 张）</div>
+                  <div class="dropzone-secondary-text">专供微信公众号「贴图」发布，支持调整顺序；若留空则自动使用上方封面</div>
+                  <button type="button" class="btn btn-sm btn-drop-pick">📂 选择贴图图片</button>
+                </div>
+                <div class="dropzone-loaded hidden" id="mpImagesLoaded">
+                  <div id="mpImagesGrid" class="mp-images-grid"></div>
+                  <div class="file-card-actions">
+                    <button type="button" class="btn btn-sm btn-secondary" id="btnAddMoreMpImages">➕ 继续加图</button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" id="btnClearMpImages">清空贴图</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="dropzone-paste-tip">
-              💡 <b>快捷贴图提示：</b> 截屏后，直接在页面任意处按 <b>Cmd + V</b>，插件会自动按图片宽高比放入对应竖版或横版封面框！
+              💡 <b>快捷贴图提示：</b> 截屏后，直接在页面任意处按 <b>Cmd + V</b>，插件会自动按图片宽高比放入对应竖版或横版封面框；多图可直接批量拖入上方「微信公众号贴图图片」区！
             </div>
           </div>
         </div>
@@ -390,6 +421,37 @@
                   <button class="btn-xs btn-cover-horizontal" data-plat="bilibili" title="直接寻找B站封面添加入口并注入【横版封面】">🖥️ 传横版封面</button>
                 </div>
               </div>
+
+              <!-- 微信公众号（贴图） -->
+              <div class="platform-card platform-card-mp" data-platform="wechat_mp">
+                <div class="platform-card-main">
+                  <label class="platform-check-row">
+                    <input type="checkbox" id="chk_wechat_mp" class="chk-platform-lg" checked>
+                    <div class="platform-meta">
+                      <span class="platform-title">💚 微信公众号（贴图）</span>
+                      <span class="platform-url">mp.weixin.qq.com · 贴图图文模式</span>
+                    </div>
+                  </label>
+                  <div class="platform-status-badge" id="status_wechat_mp">
+                    <span class="status-indicator"></span>
+                    <span class="status-label">检测中...</span>
+                  </div>
+                </div>
+                <div class="platform-cover-choice">
+                  <span class="cover-choice-label">贴图策略:</span>
+                  <select class="select-cover-choice" id="coverType_wechat_mp">
+                    <option value="auto">🖼️ 优先贴图多图（留空自动复用封面）</option>
+                    <option value="vertical">📱 仅使用竖版封面 (3:4)</option>
+                    <option value="horizontal">🖥️ 仅使用横版封面 (16:9)</option>
+                    <option value="both_covers">🖼️ 同时上传竖版 + 横版封面</option>
+                  </select>
+                </div>
+                <div class="platform-card-footer">
+                  <button class="btn-xs btn-open-tab" data-plat="wechat_mp">🌐 打开贴图页</button>
+                  <button class="btn-xs btn-single-sync btn-mp-primary" data-plat="wechat_mp" title="同步标题、正文描述、#话题以及贴图图片到微信公众号">🚀 同步图文+贴图</button>
+                  <button class="btn-xs btn-cover-only" data-plat="wechat_mp" title="仅追加上传图片，不修改标题和正文">➕ 仅追加图片</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -401,7 +463,7 @@
               <span class="hero-btn-icon">🚀</span>
               <div class="hero-btn-content">
                 <span class="hero-btn-title">一键同步填入所选平台</span>
-                <span class="hero-btn-subtitle">自动注入标题、描述、话题与封面至已勾选的后台页面</span>
+                <span class="hero-btn-subtitle">一次性搞定各平台视频投稿 + 微信公众号贴图，自动注入图文、话题与素材</span>
               </div>
             </button>
             <div class="action-security-note">

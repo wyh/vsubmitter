@@ -938,3 +938,138 @@ body {
 .hidden {
   display: none !important;
 }
+
+/* WeChat MP Multi-Image Gallery Dropzone */
+.mp-images-block {
+  margin-top: 14px;
+  margin-bottom: 12px;
+}
+
+.mp-header-left,
+.mp-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dropzone-mp-images {
+  min-height: 128px;
+  border-color: #86efac;
+  background: #f6fef9;
+}
+
+.dropzone-mp-images:hover,
+.dropzone-mp-images.dragover {
+  border-color: #16a34a;
+  background: #ecfdf5;
+}
+
+.mp-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.mp-image-thumb-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--shadow-sm);
+}
+
+.mp-image-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.mp-image-thumb-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mp-image-index {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: rgb(15 23 42 / 0.72);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+.mp-image-name {
+  font-size: 10.5px;
+  color: #475569;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.mp-image-actions {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.mp-img-btn {
+  border: 1px solid var(--border);
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mp-img-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: #eef2ff;
+}
+
+.mp-img-btn.danger:hover {
+  border-color: #ef4444;
+  color: #dc2626;
+  background: #fee2e2;
+}
+
+.platform-card-mp {
+  border-color: #bbf7d0;
+  background: #f7fef9;
+}
+
+.platform-card-mp:hover {
+  border-color: #4ade80;
+  background: #ffffff;
+}
+
+.btn-xs.btn-mp-primary {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #047857;
+  font-weight: 600;
+}
+
+.btn-xs.btn-mp-primary:hover {
+  background: #d1fae5;
+  border-color: #10b981;
+  color: #065f46;
+}

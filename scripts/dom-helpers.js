@@ -233,22 +233,36 @@ window.__vsubmitter_helpers = (function() {
    */
   async function injectFile(fileInput, filePayload) {
     if (!fileInput || !filePayload || !filePayload.dataUrl) return false;
+    return injectFiles(fileInput, [filePayload]);
+  }
+
+  /**
+   * Inject one or multiple File objects into <input type="file"> via DataTransfer
+   */
+  async function injectFiles(fileInput, filePayloads) {
+    if (!fileInput || !Array.isArray(filePayloads) || filePayloads.length === 0) return false;
     try {
-      const res = await fetch(filePayload.dataUrl);
-      const blob = await res.blob();
-      const file = new File([blob], filePayload.name || 'upload_file.png', {
-        type: filePayload.type || blob.type || 'image/png'
-      });
-
       const dt = new DataTransfer();
-      dt.items.add(file);
-      fileInput.files = dt.files;
+      let added = 0;
+      for (let i = 0; i < filePayloads.length; i++) {
+        const fp = filePayloads[i];
+        if (!fp || !fp.dataUrl) continue;
+        const res = await fetch(fp.dataUrl);
+        const blob = await res.blob();
+        const file = new File([blob], fp.name || `upload_file_${i + 1}.png`, {
+          type: fp.type || blob.type || 'image/png'
+        });
+        dt.items.add(file);
+        added++;
+      }
+      if (added === 0) return false;
 
+      fileInput.files = dt.files;
       fileInput.dispatchEvent(new Event('change', { bubbles: true }));
       fileInput.dispatchEvent(new Event('input', { bubbles: true }));
       return true;
     } catch (err) {
-      console.error('[vsubmitter] injectFile error:', err);
+      console.error('[vsubmitter] injectFiles error:', err);
       return false;
     }
   }
@@ -409,6 +423,7 @@ window.__vsubmitter_helpers = (function() {
     moveCursorToEnd,
     insertHashtags,
     injectFile,
+    injectFiles,
     clickElement,
     findInputByLabel,
     findEditorByLabel,
