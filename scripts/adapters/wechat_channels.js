@@ -106,8 +106,8 @@ window.__vsubmitter_adapters.wechat_channels = {
       'div.input-editor',
       '[data-placeholder*="添加描述"]',
       '[placeholder*="添加描述"]',
-      '.post-desc-box [contenteditable="true"]'
-    ]) || this.findByRowLabel('视频描述', '[contenteditable="true"], textarea');
+      '.post-desc-box [contenteditable]'
+    ]) || this.findByRowLabel('视频描述', '[contenteditable], textarea');
   },
 
   findVideoUploadBox() {
@@ -124,7 +124,8 @@ window.__vsubmitter_adapters.wechat_channels = {
       }
       return leaf.parentElement;
     }
-    return this.$first(['.post-upload-wrap', '.upload-content', '.ant-upload', '[class*="upload-wrap"]']);
+    const candidates = this.$$('.post-upload-wrap, .upload-content, .ant-upload');
+    return candidates.find(el => el.querySelector('input[type="file"]')) || null;
   },
 
   findVideoFileInput(box) {
@@ -170,7 +171,7 @@ window.__vsubmitter_adapters.wechat_channels = {
     const iframes = Array.from(document.querySelectorAll('iframe'))
       .map(f => (f.src || '(about:blank)').slice(0, 60));
     const inputs = this.$$('input').map(i => `${i.type}:${(i.placeholder || i.accept || '').slice(0, 15)}`).slice(0, 8);
-    const editables = this.$$('[contenteditable="true"]').length;
+    const editables = this.$$('[contenteditable], div.input-editor').length;
     return `🔬 诊断: roots=${roots.length}, shadowHosts=[${hosts.join(',')}], iframes=[${iframes.join(' | ')}], inputs=[${inputs.join(', ')}], contenteditable=${editables}`;
   },
 
@@ -180,8 +181,22 @@ window.__vsubmitter_adapters.wechat_channels = {
     const warnings = [];
     let anyMissing = false;
 
-    // 等待表单渲染（wujie 子应用异步挂载），最多 8 秒
-    await H.waitForElement(() => this.findShortTitleInput() || this.findDescEditor() || this.findVideoUploadBox(), 8000, 300);
+    // 等待 wujie 子应用完整挂载表单控件（避免刚新开页面时容器先渲染、表单尚未水合就提前退出）
+    if (coverOnly) {
+      await H.waitForElement(() => {
+        return this.$('.horizon-cover-wrap .edit-btn, .vertical-cover-wrap .edit-btn') ||
+               this.findShortTitleInput() ||
+               this.findDescEditor();
+      }, 15000, 300);
+    } else {
+      await H.waitForElement(() => {
+        const hasForm = this.findShortTitleInput() && this.findDescEditor();
+        if (!hasForm) return null;
+        if (videoFile && !this.hasExistingVideo() && !this.findVideoFileInput()) return null;
+        return hasForm;
+      }, 20000, 350);
+      await H.sleep(400);
+    }
 
     // 1. 短标题
     if (!coverOnly) {
@@ -306,7 +321,13 @@ window.__vsubmitter_adapters.wechat_channels = {
     const wrapSel = wantHoriz ? '.horizon-cover-wrap' : '.vertical-cover-wrap';
     const dialogTitle = wantHoriz ? '编辑分享卡片' : '编辑个人主页卡片';
 
-    const editBtn = await H.waitForElement(() => this.$(`${wrapSel} .edit-btn`), waitMs, 500);
+    const editBtn = await H.waitForElement(() => {
+      const btn = this.$(`${wrapSel} .edit-btn`);
+      if (!btn || !this.isVisible(btn)) return null;
+      const cls = (btn.className || '').toString();
+      if (btn.disabled || cls.includes('disabled') || btn.closest('[class*="disabled"]')) return null;
+      return btn;
+    }, waitMs, 500);
     if (!editBtn) {
       logs.push('ℹ️ 暂未出现封面入口（视频上传/转码完成后，点「传横版封面 / 传竖版封面」补传）');
       return;
@@ -314,12 +335,20 @@ window.__vsubmitter_adapters.wechat_channels = {
 
     H.clickElement(editBtn);
 
+    let retryClicked = false;
+    const dialogWaitStart = Date.now();
     let dialog = await H.waitForElement(() => {
       const d = this.visibleDialog(dialogTitle);
       if (d) return d;
       // 竖版推荐素材气泡 → 点“直接编辑”
       const direct = this.$$('.img-recommend-wrap button').find(b => this.isVisible(b) && (b.textContent || '').trim() === '直接编辑');
       if (direct) direct.click();
+      // 若首次点击时封面刚结束转码尚未绑定事件，2秒后再补点一次
+      if (!retryClicked && Date.now() - dialogWaitStart > 2000) {
+        retryClicked = true;
+        const freshBtn = this.$(`${wrapSel} .edit-btn`);
+        if (freshBtn && this.isVisible(freshBtn)) H.clickElement(freshBtn);
+      }
       return null;
     }, 6000, 300);
 

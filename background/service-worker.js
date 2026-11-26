@@ -7,30 +7,35 @@ const PLATFORMS = {
   xiaohongshu: {
     id: 'xiaohongshu',
     name: '小红书',
+    domainKeyword: 'creator.xiaohongshu.com',
     publishKeywords: ['/publish'],
     defaultUrl: 'https://creator.xiaohongshu.com/publish/publish?target=video'
   },
   douyin: {
     id: 'douyin',
     name: '抖音',
+    domainKeyword: 'creator.douyin.com',
     publishKeywords: ['/creator-micro/content'],
     defaultUrl: 'https://creator.douyin.com/creator-micro/content/upload'
   },
   wechat_channels: {
     id: 'wechat_channels',
     name: '微信视频号',
+    domainKeyword: 'channels.weixin.qq.com',
     publishKeywords: ['/post/create', '/post/'],
     defaultUrl: 'https://channels.weixin.qq.com/platform/post/create'
   },
   bilibili: {
     id: 'bilibili',
     name: '哔哩哔哩',
+    domainKeyword: 'member.bilibili.com',
     publishKeywords: ['/platform/upload/video'],
     defaultUrl: 'https://member.bilibili.com/platform/upload/video/frame'
   },
   wechat_mp: {
     id: 'wechat_mp',
     name: '微信公众号（贴图）',
+    domainKeyword: 'mp.weixin.qq.com',
     publishKeywords: ['createType=8'],
     defaultUrl: 'https://mp.weixin.qq.com/'
   }
@@ -119,9 +124,10 @@ async function getPlatformTabs() {
       continue;
     }
 
-    // 1. First priority: tabs that are on the actual publish URL
+    // 1. First priority: tabs that are on the actual publish URL AND matching platform domain
     const publishTabs = tabs.filter(t => {
       const u = t.url || '';
+      if (plat.domainKeyword && !u.includes(plat.domainKeyword)) return false;
       return plat.publishKeywords.some(kw => u.includes(kw));
     });
 
@@ -134,11 +140,7 @@ async function getPlatformTabs() {
     // 2. Second priority: any tab matching the domain
     const domainMatch = tabs.find(t => {
       const u = t.url || '';
-      if (key === 'xiaohongshu') return u.includes('creator.xiaohongshu.com');
-      if (key === 'douyin') return u.includes('creator.douyin.com');
-      if (key === 'wechat_channels') return u.includes('channels.weixin.qq.com');
-      if (key === 'bilibili') return u.includes('member.bilibili.com');
-      return false;
+      return plat.domainKeyword ? u.includes(plat.domainKeyword) : false;
     });
 
     if (domainMatch) {
@@ -225,8 +227,9 @@ async function ensurePlatformTab(platformId) {
     return existingTab.id;
   }
 
-  // Open new tab
-  const newTab = await chrome.tabs.create({ url: plat.defaultUrl, active: false });
+  // Open new tab (activate immediately for wujie micro-frontend on wechat_channels so Chrome does not throttle sub-app mount)
+  const shouldActivate = platformId === 'wechat_channels';
+  const newTab = await chrome.tabs.create({ url: plat.defaultUrl, active: shouldActivate });
   await waitForTabReady(newTab.id);
   return newTab.id;
 }
